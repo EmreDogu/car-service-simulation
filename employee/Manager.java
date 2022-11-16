@@ -1,7 +1,6 @@
 package employee;
 
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.commons.math3.distribution.*;
 
@@ -14,12 +13,12 @@ public class Manager {
     private Mechanic[] myMechanics;
     private Customer[] myCustomers;
 
-    public Manager(int numMechanic, int numCustomer) {
+    public Manager(int numMechanic, int numCustomer, ArrayList<Integer> parameters) {
         this.mainQueue = new LinkedList<>();
         this.waitQueue = new LinkedList<>();
         this.logs = new LinkedList<>();
         initMechanics(numMechanic);
-        initCustomers(numCustomer);
+        initCustomers(numCustomer, parameters);
     }
 
     public void operate() {
@@ -32,17 +31,19 @@ public class Manager {
                     break;
                 }
             }
+
             if (currentCustomer.isFirstWaits()) {
                 registerEvent(currentCustomer);
             }
             if (!isTerminalState(currentCustomer)) {
                 Customer changed = changeCustomerState(currentCustomer);
-                if (changed.getCustomerStatus() == "waits" && changed.getPreviousStatus() != "waits") {
+                if (changed.getCustomerStatus() == "waits" && !this.waitQueue.contains(currentCustomer)) {
                     this.waitQueue.add(changed);
-                } else if (changed.getCustomerStatus() != "waits" || !currentCustomer.equals(changed)) {
+                } else if (changed.getCustomerStatus() != "waits") {
+                    this.waitQueue.removeIf(n -> (n.getCustomerId() == changed.getCustomerId()));
                     this.mainQueue.add(changed);
                 }
-            } else { // customer has terminal state of leaves or done
+            } else { 
                 if (isDoneState(currentCustomer)) {
                     Mechanic m = this.myMechanics[currentCustomer.getMechanicID() - 1];
                     mechanicHandlesDone(m, currentCustomer);
@@ -82,11 +83,11 @@ public class Manager {
         this.myMechanics = mechanics;
     }
 
-    private void initCustomers(int numCustomers) {
+    private void initCustomers(int numCustomers, ArrayList<Integer> parameters) {
         double now = 0;
         Customer[] customers = new Customer[numCustomers];
         for (int i = 0; i < numCustomers; i++) {
-            Customer myCustomer = generateCustomer(now);
+            Customer myCustomer = generateCustomer(now, parameters);
             this.mainQueue.add(myCustomer);
             customers[i] = myCustomer;
             now = getNextArrivalTime(now);
@@ -135,15 +136,18 @@ public class Manager {
         return now + (5.5 + 5 * payment.sample()) + (4.5 + 4 * delivery.sample());
     }
 
-    private Customer generateCustomer(double arrivalTime) {
-        int randomNum = ThreadLocalRandom.current().nextInt(1, 3 + 1);
-
-        if (randomNum == 1) {
-            return Customer.enter(arrivalTime, "repair");
-        } else if (randomNum == 2) {
-            return Customer.enter(arrivalTime, "checkup");
+    private Customer generateCustomer(double arrivalTime, ArrayList<Integer> parameters) {
+        Random generator = new Random();
+        double acceptence = generator.nextDouble()*(1-0.7) + 0.7;
+        if (parameters.get(0)== 1) {
+            parameters.remove(0);
+            return Customer.enter(arrivalTime, "repair", acceptence);
+        } else if (parameters.get(0) == 2) {
+            parameters.remove(0);
+            return Customer.enter(arrivalTime, "checkup", acceptence);
         } else {
-            return Customer.enter(arrivalTime, "carwash");
+            parameters.remove(0);
+            return Customer.enter(arrivalTime, "carwash", acceptence);
         }
     }
 
@@ -196,10 +200,16 @@ public class Manager {
         } else {
             if (isServedState(c)) { // served --> done, server depends on what kind:
                 double servedTime = this.getServedTime(c.getPresentTime());
-                decided = c.fromServedToService(servedTime);
-                Mechanic m = this.myMechanics[c.getMechanicID() - 1];
-                Mechanic newMechanic = m.actuallyDoTask(decided.getPresentTime());
-                this.myMechanics[m.employeeID - 1] = newMechanic;
+                Random generator = new Random();
+                double acceptence = generator.nextDouble()*(1-0);
+                if (c.getCustomerAcceptence()>=acceptence) {
+                    decided = c.fromServedToService(servedTime);
+                    Mechanic m = this.myMechanics[c.getMechanicID() - 1];
+                    Mechanic newMechanic = m.actuallyDoTask(decided.getPresentTime());
+                    this.myMechanics[m.employeeID - 1] = newMechanic;
+                }else {
+                    decided = c.fromArrivesToLeaves(servedTime);
+                }
             }
             if (isServiceState(c)) {
                 double serviceTime = 0;
@@ -226,7 +236,7 @@ public class Manager {
                 if (c.getMechanicID() > 0) {
                     Mechanic assignedMechanic = this.myMechanics[c.getMechanicID() - 1];
                     if (assignedMechanic.isIdle
-                            && c.getCustomerId() == assignedMechanic.waitingQueue.peek().getCustomerId()) {
+                            && assignedMechanic.waitingQueue.contains(c)) {
 
                         assignedMechanic.waitingQueue.remove();
                         assignedMechanic = assignedMechanic.waitServing();
@@ -243,7 +253,7 @@ public class Manager {
                         if (sorted.size() > 0) {
                             decided = c.fromWaitsToWaits(sorted.get(sorted.firstKey()).nextAvailableTime,
                                     sorted.get(sorted.firstKey()).employeeID);
-                            LinkedList<Customer> newQueue = new LinkedList<>(
+                                    LinkedList<Customer> newQueue = new LinkedList<>(
                                     sorted.get(sorted.firstKey()).waitingQueue);
                             newQueue.addLast(decided);
                             updateMechanicArray(sorted.get(sorted.firstKey()).addToWaitQueue(newQueue));
@@ -262,7 +272,7 @@ public class Manager {
                     if (sorted.size() > 0) {
                         decided = c.fromWaitsToWaits(sorted.get(sorted.firstKey()).nextAvailableTime,
                                 sorted.get(sorted.firstKey()).employeeID);
-                        LinkedList<Customer> newQueue = new LinkedList<>(sorted.get(sorted.firstKey()).waitingQueue);
+                                LinkedList<Customer> newQueue = new LinkedList<>(sorted.get(sorted.firstKey()).waitingQueue);
                         newQueue.add(decided);
                         updateMechanicArray(sorted.get(sorted.firstKey()).addToWaitQueue(newQueue));
                     } else {

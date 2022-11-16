@@ -1,7 +1,7 @@
 package customer;
 
 public class Customer {
-    static int CustomersEnteredCounter = 0; // class-level counter, used for setting IDs
+    static int CustomersEnteredCounter = 0; 
     static int CustomersServed = 0;
     static int CustomersLeft = 0;
     static double TotalWaitingTime = 0;
@@ -9,17 +9,19 @@ public class Customer {
     protected static final int NO_MECHANIC = 0;
 
     private final int customerId;
+    private final double customerAcceptence;
     private final double presentTime;
     private final String serviceType;
     private final double nextTime;
-    private final String customerStatus; // lowercase string
+    private final String customerStatus; 
     private final String previousStatus;
-    protected int mechanicID; // NO_SERVER if unassigned
+    protected int mechanicID;
     protected boolean firstWaits = true;
     private final double entryTime;
 
-    public Customer(int customerId, double arrivalTime, String serviceType) {
+    public Customer(int customerId, double arrivalTime, String serviceType, Double customerAcceptence) {
         this.customerId = customerId;
+        this.customerAcceptence = customerAcceptence;
         this.serviceType = serviceType;
         this.presentTime = arrivalTime;
         this.nextTime = arrivalTime;
@@ -29,9 +31,10 @@ public class Customer {
         this.entryTime = arrivalTime;
     }
 
-    private Customer(int customerId, double updatedPresentTime, double updatedNextTime, String previousStatus,
+    private Customer(int customerId, double customerAcceptence, double updatedPresentTime, double updatedNextTime, String previousStatus,
             String newStatus, String serviceType, int mechanicID, double entryTime) {
         this.customerId = customerId;
+        this.customerAcceptence = customerAcceptence;
         this.presentTime = updatedPresentTime;
         this.nextTime = updatedNextTime;
         this.previousStatus = previousStatus;
@@ -41,31 +44,31 @@ public class Customer {
         this.entryTime = entryTime;
     }
 
-    public static Customer enter(double arrivalTime, String serviceType) {
-        return new Customer(++CustomersEnteredCounter, arrivalTime, serviceType);
+    public static Customer enter(double arrivalTime, String serviceType, double acceptence) {
+        return new Customer(++CustomersEnteredCounter, arrivalTime, serviceType, acceptence);
     }
 
     public Customer fromArrivesToServed(int mechanicID) {
         // ARRIVES to SERVED (i.e served immediately)
-        return new Customer(this.customerId, this.presentTime, this.presentTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, this.presentTime, this.presentTime, this.customerStatus,
                 "served", this.serviceType, mechanicID, this.entryTime);
     }
 
     public Customer fromServedToService(double servedTime) {
         // ARRIVES to SERVED (i.e served immediately)
-        return new Customer(this.customerId, servedTime, servedTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, servedTime, servedTime, this.customerStatus,
                 "service", this.serviceType, this.mechanicID, this.entryTime);
     }
 
     public Customer fromServiceToDelivery(double serviceTime) {
         // ARRIVES to SERVED (i.e served immediately)
-        return new Customer(this.customerId, serviceTime, serviceTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, serviceTime, serviceTime, this.customerStatus,
                 "delivery", this.serviceType, this.mechanicID, this.entryTime);
     }
 
     public Customer fromWaitsToWaits(double nextAvailableTime, int mechanicID) {
         assert (this.customerStatus.equals("waits"));
-        Customer res = new Customer(this.customerId, this.presentTime,
+        Customer res = new Customer(this.customerId, this.customerAcceptence, this.presentTime,
                 nextAvailableTime, this.customerStatus, "waits", this.serviceType, mechanicID, this.entryTime);
         res.firstWaits = false;
         return res;
@@ -73,9 +76,10 @@ public class Customer {
 
     public Customer fromWaitsToServed(double nextAvailableTime) {
         assert (this.customerStatus.equals("waits"));
-        Customer.TotalWaitingTime += (nextAvailableTime - this.entryTime);
+        TotalWaitingTime += (nextAvailableTime - this.entryTime);
         // will def be served if there's no one else waiting:
         return new Customer(this.customerId,
+        this.customerAcceptence, 
                 nextAvailableTime,
                 nextAvailableTime,
                 this.customerStatus,
@@ -86,19 +90,19 @@ public class Customer {
     public Customer fromDeliveryToDone(double deliveryTime) {
         // ARRIVES to SERVED (i.e served immediately)
         ++CustomersServed;
-        return new Customer(this.customerId, deliveryTime, deliveryTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, deliveryTime, deliveryTime, this.customerStatus,
                 "done", this.serviceType, this.mechanicID, this.entryTime);
     }
 
     public Customer fromArrivesToWaits(double nextAvailableTime, int mechanicID) {
         Customer.TotalWaitCounter++;
-        return new Customer(this.customerId, this.presentTime, nextAvailableTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, this.presentTime, nextAvailableTime, this.customerStatus,
                 "waits", this.serviceType, mechanicID, this.entryTime);
     }
 
-    public Customer fromArrivesToLeaves() {
+    public Customer fromArrivesToLeaves(double servedTime) {
         Customer.CustomersLeft++;
-        return new Customer(this.customerId, this.presentTime, this.presentTime, this.customerStatus,
+        return new Customer(this.customerId, this.customerAcceptence, servedTime, servedTime, this.customerStatus,
                 "leaves", this.serviceType, NO_MECHANIC, this.entryTime);
     }
 
@@ -166,6 +170,10 @@ public class Customer {
         return customerStatus;
     }
 
+    public Double getCustomerAcceptence() {
+        return customerAcceptence;
+    }
+
     public String getPreviousStatus() {
         return previousStatus;
     }
@@ -193,7 +201,7 @@ public class Customer {
     public static String customerStats() {
         double averageWaitingTime = (CustomersServed == 0 || TotalWaitingTime == 0)
                 ? 0
-                : Customer.TotalWaitingTime / Customer.CustomersServed;
+                : TotalWaitingTime / CustomersServed;
         return "[" + "Average waiting time: " + averageWaitingTime + " minutes, " 
                 + "Customers: " + CustomersServed + ", " + "Customers left: " + (CustomersEnteredCounter - CustomersServed) + "]";
     }

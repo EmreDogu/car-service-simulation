@@ -13,7 +13,7 @@ public class Mechanic {
     public Mechanic(int employeeID) {
         this.employeeID = employeeID;
         this.isIdle = true;
-        this.nextAvailableTime = 0; // start availability will be at 0
+        this.nextAvailableTime = 0;
         this.waitingQueue = new LinkedList<>();
     }
 
