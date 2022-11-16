@@ -25,7 +25,7 @@ public class Manager {
         while (!this.mainQueue.isEmpty() && !everyCustomerDone()) {
             Customer currentCustomer = mainQueue.poll();
             for (Mechanic m : myMechanics) {
-                if (m.isIdle && waitQueue.size()>0) {
+                if (m.isIdle && waitQueue.size() > 0) {
                     Customer toAdd = waitQueue.poll();
                     this.mainQueue.add(toAdd);
                     break;
@@ -43,7 +43,7 @@ public class Manager {
                     this.waitQueue.removeIf(n -> (n.getCustomerId() == changed.getCustomerId()));
                     this.mainQueue.add(changed);
                 }
-            } else { 
+            } else {
                 if (isDoneState(currentCustomer)) {
                     Mechanic m = this.myMechanics[currentCustomer.getMechanicID() - 1];
                     mechanicHandlesDone(m, currentCustomer);
@@ -138,8 +138,8 @@ public class Manager {
 
     private Customer generateCustomer(double arrivalTime, ArrayList<Integer> parameters) {
         Random generator = new Random();
-        double acceptence = generator.nextDouble()*(1-0.7) + 0.7;
-        if (parameters.get(0)== 1) {
+        double acceptence = generator.nextDouble() * (1 - 0.7) + 0.7;
+        if (parameters.get(0) == 1) {
             parameters.remove(0);
             return Customer.enter(arrivalTime, "repair", acceptence);
         } else if (parameters.get(0) == 2) {
@@ -198,32 +198,47 @@ public class Manager {
         if (isArrivesState(c)) {
             return handleArrivalState(c);
         } else {
-            if (isServedState(c)) { // served --> done, server depends on what kind:
+            if (isServedState(c)) {
                 double servedTime = this.getServedTime(c.getPresentTime());
                 Random generator = new Random();
-                double acceptence = generator.nextDouble()*(1-0);
-                if (c.getCustomerAcceptence()>=acceptence) {
+                double acceptence = generator.nextDouble() * (1 - 0);
+                if (c.getCustomerAcceptence() >= acceptence) {
                     decided = c.fromServedToService(servedTime);
                     Mechanic m = this.myMechanics[c.getMechanicID() - 1];
                     Mechanic newMechanic = m.actuallyDoTask(decided.getPresentTime());
                     this.myMechanics[m.employeeID - 1] = newMechanic;
-                }else {
+                } else {
                     decided = c.fromArrivesToLeaves(servedTime);
                 }
             }
             if (isServiceState(c)) {
+                Random generator = new Random();
+                double failiure = generator.nextDouble() * (1 - 0);
                 double serviceTime = 0;
-                if (c.getServiceType() == "repair") {
-                    serviceTime = this.getRepairTime(c.getPresentTime());
-                } else if (c.getServiceType() == "checkup") {
-                    serviceTime = this.getCheckupTime(c.getPresentTime());
+                if (0.9 < failiure) {
+                    while (0.95 < failiure) {
+                        failiure = generator.nextDouble() * (1 - 0);
+                        if (c.getServiceType() == "repair") {
+                            serviceTime += this.getRepairTime(c.getPresentTime());
+                        } else if (c.getServiceType() == "checkup") {
+                            serviceTime += this.getCheckupTime(c.getPresentTime());
+                        } else {
+                            serviceTime += this.getCarwashTime(c.getPresentTime());
+                        }
+                    }
                 } else {
-                    serviceTime = this.getCarwashTime(c.getPresentTime());
+                    if (c.getServiceType() == "repair") {
+                        serviceTime = this.getRepairTime(c.getPresentTime());
+                    } else if (c.getServiceType() == "checkup") {
+                        serviceTime = this.getCheckupTime(c.getPresentTime());
+                    } else {
+                        serviceTime = this.getCarwashTime(c.getPresentTime());
+                    }
+                    decided = c.fromServiceToDelivery(serviceTime);
+                    Mechanic m = this.myMechanics[c.getMechanicID() - 1];
+                    Mechanic newMechanic = m.actuallyDoTask(decided.getPresentTime());
+                    this.myMechanics[m.employeeID - 1] = newMechanic;
                 }
-                decided = c.fromServiceToDelivery(serviceTime);
-                Mechanic m = this.myMechanics[c.getMechanicID() - 1];
-                Mechanic newMechanic = m.actuallyDoTask(decided.getPresentTime());
-                this.myMechanics[m.employeeID - 1] = newMechanic;
             }
             if (isDeliveryState(c)) {
                 double deliveryTime = this.getDeliveryTime(c.getPresentTime());
@@ -253,7 +268,7 @@ public class Manager {
                         if (sorted.size() > 0) {
                             decided = c.fromWaitsToWaits(sorted.get(sorted.firstKey()).nextAvailableTime,
                                     sorted.get(sorted.firstKey()).employeeID);
-                                    LinkedList<Customer> newQueue = new LinkedList<>(
+                            LinkedList<Customer> newQueue = new LinkedList<>(
                                     sorted.get(sorted.firstKey()).waitingQueue);
                             newQueue.addLast(decided);
                             updateMechanicArray(sorted.get(sorted.firstKey()).addToWaitQueue(newQueue));
@@ -272,7 +287,7 @@ public class Manager {
                     if (sorted.size() > 0) {
                         decided = c.fromWaitsToWaits(sorted.get(sorted.firstKey()).nextAvailableTime,
                                 sorted.get(sorted.firstKey()).employeeID);
-                                LinkedList<Customer> newQueue = new LinkedList<>(sorted.get(sorted.firstKey()).waitingQueue);
+                        LinkedList<Customer> newQueue = new LinkedList<>(sorted.get(sorted.firstKey()).waitingQueue);
                         newQueue.add(decided);
                         updateMechanicArray(sorted.get(sorted.firstKey()).addToWaitQueue(newQueue));
                     } else {
